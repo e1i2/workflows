@@ -36,7 +36,7 @@ jobs:
         if: steps.check_values_exists.outputs.files_exists == 'false'
         env:
             VERSION: ${{ github.sha }}
-            NAME: ${{ env.docker_image_name }}
+            NAME: ${{ github.event.repository.name }}
             PROFILE: ${{ inputs.profile }}
             PORT: ${{ inputs.port }}
         with:
