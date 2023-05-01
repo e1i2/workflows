@@ -1,0 +1,52 @@
+on:
+  workflow_call:
+    inputs:
+      profile:
+        type: string
+        required: true
+      port:
+        type: string
+        required: true
+
+env:
+  docker_image_name: ${{ github.event.repository.name }}-${{ github.sha }}
+  template_file_path: services/chart/values/${{ github.event.repository.name }}-values.yaml
+
+jobs:
+  update-argocd-metadata:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: e1i2/argocd
+          token: ${{ secrets.PAT }}
+      - name: Check file existence
+        id: check_values_exists
+        uses: andstor/file-existence-action@v2
+        with:
+          files: ${{ env.template_file_path }}
+      - name: File exists
+        if: steps.check_values_exists.outputs.files_exists == 'true'
+        run: |
+          sed -i 's/version\: .*/version\: ${{ github.sha }}/g' ${{ env.template_file_path }}
+      
+      - name: create values.yaml
+        uses: danielr1996/envsubst-action@1.0.0
+        if: steps.check_values_exists.outputs.files_exists == 'false'
+        env:
+            VERSION: ${{ github.sha }}
+            NAME: ${{ env.docker_image_name }}
+            PROFILE: ${{ inputs.profile }}
+            PORT: ${{ inputs.port }}
+        with:
+          input: values-template.yaml
+          output: ${{ env.template_file_path }}
+      - name: git push
+        run: |
+          git config --global user.email "GitHub Actions Bot@github.com"
+          git config --global user.name "GitHub Actions Bot"
+          git add ${{ env.template_file_path }}
+          git commit -m "update template"
+          git pull origin main
+          git push origin main
